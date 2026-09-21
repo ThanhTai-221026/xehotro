@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Thiết bị điều khiển</title>
+  <!-- Nạp thư viện MQTT cho Web -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+    h1 { color: #38bdf8; font-size: 20px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1.5px; }
+    .status { font-size: 12px; margin-bottom: 15px; color: #ef4444; }
+    .status.connected { color: #4ade80; }
+    .speed-card { background: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 10px 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 100%; max-width: 350px; }
+    .speed-val { font-size: 36px; font-weight: 800; color: #4ade80; font-family: monospace; line-height: 1; }
+    .speed-unit { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-top: 5px; }
+    
+    .panel { background: #1e293b; padding: 15px; border-radius: 20px; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); width: 100%; max-width: 350px; margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; }
+    .grid { display: grid; grid-template-columns: repeat(3, 70px); grid-template-rows: repeat(3, 70px); gap: 10px; }
+    .btn { background: #334155; border: none; border-radius: 15px; color: #f8fafc; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.05s ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
+    .btn:active, .btn.active { background: #38bdf8; color: #0f172a; transform: scale(0.92); box-shadow: 0 0 15px #38bdf8; }
+    .btn-stop { background: #ef4444; color: #fff; grid-column: 2; grid-row: 2; border-radius: 50%; font-size: 11px; font-weight: 800; }
+    .btn-stop:active { background: #dc2626; box-shadow: 0 0 15px #ef4444; }
+    #btnF { grid-column: 2; grid-row: 1; } #btnL { grid-column: 1; grid-row: 2; }
+    #btnR { grid-column: 3; grid-row: 2; } #btnB { grid-column: 2; grid-row: 3; }
+    
+    .servo-row { width: 100%; margin-bottom: 10px; }
+    .servo-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; color: #94a3b8; font-weight: bold; }
+    input[type=range] { -webkit-appearance: none; width: 100%; background: #334155; height: 12px; border-radius: 6px; outline: none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Thiết bị điều khiển</h1>
+  <div class="status" id="status">Đang kết nối 4G/Internet...</div>
+  
+  <div class="speed-card">
+    <div class="speed-val" id="speed">0.0</div>
+    <div class="speed-unit">Tốc độ thực tế (km/h)</div>
+  </div>
+
+  <div class="panel">
+    <div class="grid">
+      <button class="btn" id="btnF">▲</button>
+      <button class="btn" id="btnL">◄</button>
+      <button class="btn btn-stop" id="btnS">DỪNG</button>
+      <button class="btn" id="btnR">►</button>
+      <button class="btn" id="btnB">▼</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 16px;">Điều Khiển Cánh Tay Robot</h3>
+    <div class="servo-row">
+      <div class="servo-label"><span>Đế</span><span id="v_base">90°</span></div>
+      <input type="range" min="0" max="180" value="90" oninput="sendServo('base', this.value)">
+    </div>
+    <div class="servo-row">
+      <div class="servo-label"><span>Cánh tay 1</span><span id="v_shoulder">90°</span></div>
+      <input type="range" min="0" max="180" value="90" oninput="sendServo('shoulder', this.value)">
+    </div>
+    <div class="servo-row">
+      <div class="servo-label"><span>Cánh tay 2</span><span id="v_elbow">90°</span></div>
+      <input type="range" min="0" max="180" value="90" oninput="sendServo('elbow', this.value)">
+    </div>
+    <div class="servo-row">
+      <div class="servo-label"><span>Cánh tay kẹp</span><span id="v_gripper">90°</span></div>
+      <input type="range" min="0" max="180" value="90" oninput="sendServo('gripper', this.value)">
+    </div>
+  </div>
+
+  <script>
+    // Kết nối đến HiveMQ WebSockets (Cổng 8884 cho WSS/HTTPS)
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+    
+    client.on('connect', () => {
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = "Đã kết nối Máy Chủ";
+      statusEl.classList.add('connected');
+      client.subscribe('rescue_car/telemetry');
+    });
+
+    client.on('message', (topic, message) => {
+      if (topic === 'rescue_car/telemetry') {
+        document.getElementById('speed').innerText = message.toString();
+      }
+    });
+
+    let holdInterval = null;
+    let activeCmd = 'stop';
+
+    function sendCmd(cmd) {
+      if(client.connected) client.publish('rescue_car/cmd', cmd);
+    }
+
+    function sendServo(joint, val) {
+      document.getElementById('v_' + joint).innerText = val + '°';
+      if(client.connected) client.publish('rescue_car/cmd', joint + ':' + val);
+    }
+
+    function pressBtn(cmd, id) {
+      if(activeCmd === cmd) return;
+      activeCmd = cmd;
+      document.getElementById(id).classList.add('active');
+      sendCmd(cmd);
+      if (holdInterval) clearInterval(holdInterval);
+      holdInterval = setInterval(() => sendCmd(cmd), 800); // Gửi liên tục để tránh ngắt an toàn 2s
+    }
+
+    function releaseBtn() {
+      if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+      activeCmd = 'stop';
+      sendCmd('stop');
+      ['btnF','btnB','btnL','btnR'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    }
+
+    const bind = (id, cmd) => {
+      let el = document.getElementById(id);
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); pressBtn(cmd, id); }, {passive: false});
+      el.addEventListener('touchend', (e) => { e.preventDefault(); releaseBtn(); }, {passive: false});
+      el.addEventListener('mousedown', () => pressBtn(cmd, id));
+      el.addEventListener('mouseup', releaseBtn);
+      el.addEventListener('mouseleave', releaseBtn);
+    };
+
+    bind('btnF', 'forward'); bind('btnB', 'backward'); bind('btnL', 'left'); bind('btnR', 'right');
+    document.getElementById('btnS').onclick = releaseBtn;
+  </script>
+</body>
+</html>
