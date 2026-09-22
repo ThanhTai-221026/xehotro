@@ -8,8 +8,9 @@
     * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
     h1 { color: #38bdf8; font-size: 20px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1.5px; }
-    .status { font-size: 12px; margin-bottom: 10px; color: #ef4444; }
+    .status { font-size: 12px; margin-bottom: 10px; color: #ef4444; font-weight: bold; }
     .status.connected { color: #4ade80; }
+    .status.reconnecting { color: #facc15; }
     .speed-card { background: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 10px 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 100%; max-width: 350px; }
     .speed-val { font-size: 36px; font-weight: 800; color: #4ade80; font-family: monospace; line-height: 1; }
     .speed-unit { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-top: 5px; }
@@ -28,7 +29,8 @@
     input[type=range] { -webkit-appearance: none; width: 100%; background: #334155; height: 12px; border-radius: 6px; outline: none; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <!-- Sử dụng thư viện MQTT.js siêu chuẩn cho web -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
   <h1>Thiết bị điều khiển</h1>
@@ -75,53 +77,64 @@
     let holdInterval = null;
     let activeCmd = 'stop';
     
-    // Đã thay đổi sang cổng 8884 cho giao thức bảo mật wss://
-    const mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8884, "WebClient-" + Math.random().toString(16).substr(2, 8));
-    
-    mqttClient.onMessageArrived = function(message) {
-      if (message.destinationName === "robot/telemetry") {
+    // Kết nối bằng MQTT.js thông qua wss:// (Secure WebSocket) đường dẫn chuẩn của HiveMQ
+    const clientId = "WebClient-" + Math.random().toString(16).substr(2, 8);
+    const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+      clientId: clientId,
+      keepalive: 60,
+      reconnectPeriod: 1000
+    });
+
+    const statusEl = document.getElementById('mqtt-status');
+
+    mqttClient.on('connect', function () {
+      statusEl.innerText = "Đã kết nối máy chủ";
+      statusEl.className = "status connected";
+      mqttClient.subscribe("robot/telemetry");
+    });
+
+    mqttClient.on('reconnect', function () {
+      statusEl.innerText = "Đang thử kết nối lại...";
+      statusEl.className = "status reconnecting";
+    });
+
+    mqttClient.on('error', function (err) {
+      statusEl.innerText = "Lỗi kết nối!";
+      statusEl.className = "status";
+      console.error("MQTT Error: ", err);
+    });
+
+    // Xử lý khi nhận được dữ liệu (tốc độ xe trả về)
+    mqttClient.on('message', function (topic, message) {
+      if (topic === "robot/telemetry") {
         try {
-          const data = JSON.parse(message.payloadString);
+          const data = JSON.parse(message.toString());
           document.getElementById('speed').innerText = data.speed.toFixed(1);
         } catch(e) {}
       }
-    };
-
-    mqttClient.connect({
-      useSSL: true, // Đã bật SSL để trang GitHub Pages (HTTPS) cho phép kết nối
-      onSuccess: function() {
-        const statusEl = document.getElementById('mqtt-status');
-        statusEl.innerText = "Đã kết nối máy chủ";
-        statusEl.classList.add('connected');
-        mqttClient.subscribe("robot/telemetry");
-      },
-      onFailure: function() {
-        document.getElementById('mqtt-status').innerText = "Mất kết nối Server!";
-      }
     });
 
+    // Hàm gửi lệnh di chuyển
     function sendDirection(dir) {
-      if (!mqttClient.isConnected()) return;
+      if (!mqttClient.connected) return;
       let x = 0, y = 0;
       if (dir === 'forward') { x = 2000; y = 0; }
       else if (dir === 'backward') { x = -2000; y = 0; }
       else if (dir === 'left') { x = 0; y = -2000; }
       else if (dir === 'right') { x = 0; y = 2000; }
       
-      const msg = new Paho.MQTT.Message(`${x},${y}`);
-      msg.destinationName = "robot/joystick_cmd";
-      mqttClient.send(msg);
+      mqttClient.publish("robot/joystick_cmd", `${x},${y}`);
     }
 
+    // Hàm gửi góc Servo
     function sendServo(joint, val) {
       document.getElementById('v_' + joint).innerText = val + '°';
-      if (mqttClient.isConnected()) {
-        const msg = new Paho.MQTT.Message(`${joint}:${val}`);
-        msg.destinationName = "robot/servo_cmd";
-        mqttClient.send(msg);
+      if (mqttClient.connected) {
+        mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
       }
     }
 
+    // Xử lý hiệu ứng nút bấm và gửi lệnh liên tục
     function pressBtn(cmd, id) {
       if(activeCmd === cmd) return;
       activeCmd = cmd;
@@ -138,6 +151,7 @@
       ['btnF','btnB','btnL','btnR'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     }
 
+    // Gán sự kiện cho các nút
     const bind = (id, cmd) => {
       let el = document.getElementById(id);
       el.addEventListener('touchstart', (e) => { e.preventDefault(); pressBtn(cmd, id); }, {passive: false});
