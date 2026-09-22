@@ -3,15 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Thiết bị điều khiển</title>
-  <!-- Nạp thư viện MQTT cho Web -->
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <title>Điều Khiển Xe Cứu Hộ 4G</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
     h1 { color: #38bdf8; font-size: 20px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1.5px; }
-    .status { font-size: 12px; margin-bottom: 15px; color: #ef4444; }
-    .status.connected { color: #4ade80; }
+    .status { font-size: 14px; margin-bottom: 15px; padding: 5px 15px; border-radius: 20px; background: #7f1d1d; color: #fca5a5; font-weight: bold; }
+    .status.connected { background: #14532d; color: #86efac; }
     .speed-card { background: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 10px 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 100%; max-width: 350px; }
     .speed-val { font-size: 36px; font-weight: 800; color: #4ade80; font-family: monospace; line-height: 1; }
     .speed-unit { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-top: 5px; }
@@ -32,8 +31,8 @@
   </style>
 </head>
 <body>
-  <h1>Thiết bị điều khiển</h1>
-  <div class="status" id="status">Đang kết nối 4G/Internet...</div>
+  <h1>Điều Khiển Xe Cứu Hộ</h1>
+  <div class="status" id="status">Đang kết nối Server...</div>
   
   <div class="speed-card">
     <div class="speed-val" id="speed">0.0</div>
@@ -51,38 +50,43 @@
   </div>
 
   <div class="panel">
-    <h3 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 16px;">Điều Khiển Cánh Tay Robot</h3>
+    <h3 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 16px;">Cánh Tay Robot</h3>
     <div class="servo-row">
       <div class="servo-label"><span>Đế</span><span id="v_base">90°</span></div>
       <input type="range" min="0" max="180" value="90" oninput="sendServo('base', this.value)">
     </div>
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh tay 1</span><span id="v_shoulder">90°</span></div>
+      <div class="servo-label"><span>Cánh Tay 1</span><span id="v_shoulder">90°</span></div>
       <input type="range" min="0" max="180" value="90" oninput="sendServo('shoulder', this.value)">
     </div>
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh tay 2</span><span id="v_elbow">90°</span></div>
+      <div class="servo-label"><span>Cánh Tay 2</span><span id="v_elbow">90°</span></div>
       <input type="range" min="0" max="180" value="90" oninput="sendServo('elbow', this.value)">
     </div>
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh tay kẹp</span><span id="v_gripper">90°</span></div>
+      <div class="servo-label"><span>Cánh Tay Kẹp</span><span id="v_gripper">90°</span></div>
       <input type="range" min="0" max="180" value="90" oninput="sendServo('gripper', this.value)">
     </div>
   </div>
 
   <script>
-    // Kết nối đến HiveMQ WebSockets (Cổng 8884 cho WSS/HTTPS)
-    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+    // Kênh truyền độc quyền để kết nối luôn ổn định, không bị nhiễu sóng
+    const CMD_TOPIC = 'thanhtai_xe_2026/cmd';
+    const TELEMETRY_TOPIC = 'thanhtai_xe_2026/telemetry';
+
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+      clientId: 'WebClient_' + Math.random().toString(16).substr(2, 8)
+    });
     
     client.on('connect', () => {
       const statusEl = document.getElementById('status');
-      statusEl.innerText = "Đã kết nối Máy Chủ";
+      statusEl.innerText = "Đã kết nối Server Ổn Định!";
       statusEl.classList.add('connected');
-      client.subscribe('rescue_car/telemetry');
+      client.subscribe(TELEMETRY_TOPIC);
     });
 
     client.on('message', (topic, message) => {
-      if (topic === 'rescue_car/telemetry') {
+      if (topic === TELEMETRY_TOPIC) {
         document.getElementById('speed').innerText = message.toString();
       }
     });
@@ -91,12 +95,12 @@
     let activeCmd = 'stop';
 
     function sendCmd(cmd) {
-      if(client.connected) client.publish('rescue_car/cmd', cmd);
+      if(client.connected) client.publish(CMD_TOPIC, cmd);
     }
 
     function sendServo(joint, val) {
       document.getElementById('v_' + joint).innerText = val + '°';
-      if(client.connected) client.publish('rescue_car/cmd', joint + ':' + val);
+      if(client.connected) client.publish(CMD_TOPIC, joint + ':' + val);
     }
 
     function pressBtn(cmd, id) {
@@ -105,7 +109,7 @@
       document.getElementById(id).classList.add('active');
       sendCmd(cmd);
       if (holdInterval) clearInterval(holdInterval);
-      holdInterval = setInterval(() => sendCmd(cmd), 800); // Gửi liên tục để tránh ngắt an toàn 2s
+      holdInterval = setInterval(() => sendCmd(cmd), 800); 
     }
 
     function releaseBtn() {
