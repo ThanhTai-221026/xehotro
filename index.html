@@ -28,7 +28,6 @@
     input[type=range] { -webkit-appearance: none; width: 100%; background: #334155; height: 12px; border-radius: 6px; outline: none; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
   </style>
-  <!-- Thêm thư viện Paho MQTT cho WebSockets -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 </head>
 <body>
@@ -76,8 +75,8 @@
     let holdInterval = null;
     let activeCmd = 'stop';
     
-    // MQTT WebSocket Setup
-    const mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8000, "WebClient-" + Math.random().toString(16).substr(2, 8));
+    // Đã thay đổi sang cổng 8884 cho giao thức bảo mật wss://
+    const mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8884, "WebClient-" + Math.random().toString(16).substr(2, 8));
     
     mqttClient.onMessageArrived = function(message) {
       if (message.destinationName === "robot/telemetry") {
@@ -89,6 +88,7 @@
     };
 
     mqttClient.connect({
+      useSSL: true, // Đã bật SSL để trang GitHub Pages (HTTPS) cho phép kết nối
       onSuccess: function() {
         const statusEl = document.getElementById('mqtt-status');
         statusEl.innerText = "Đã kết nối máy chủ";
@@ -100,7 +100,6 @@
       }
     });
 
-    // Chuyển lệnh hướng sang tọa độ x, y để map khớp 100% với logic processMotion trên xe
     function sendDirection(dir) {
       if (!mqttClient.isConnected()) return;
       let x = 0, y = 0;
