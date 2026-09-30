@@ -300,7 +300,7 @@
     </div>
 
     <div class="servo-actions">
-      <button id="btnCenter" class="action-btn action-primary" type="button">CENTER 90°</button>
+      <button id="btnCenter" class="action-btn action-primary" type="button">CHỈNH VỀ 90°</button>
       <button id="btnReconnect" class="action-btn" type="button">KẾT NỐI LẠI</button>
     </div>
   </div>
@@ -392,10 +392,10 @@
 
     function updateHardwareStatus(ok) {
       if (ok) {
-        hardwareStatusEl.innerText = 'PCA9685: OK • Servo controller sẵn sàng';
+        hardwareStatusEl.innerText = 'Đã kết nối với cánh tay robot';
         hardwareStatusEl.style.color = '#4ade80';
       } else {
-        hardwareStatusEl.innerText = 'PCA9685: LỖI • kiểm tra I2C và nguồn V+';
+        hardwareStatusEl.innerText = 'Lỗi kết nối với cánh tay robot';
         hardwareStatusEl.style.color = '#ef4444';
       }
     }
