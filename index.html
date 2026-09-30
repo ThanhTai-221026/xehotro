@@ -29,7 +29,6 @@
     input[type=range] { -webkit-appearance: none; width: 100%; background: #334155; height: 12px; border-radius: 6px; outline: none; }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
   </style>
-  <!-- Sử dụng thư viện MQTT.js siêu chuẩn cho web -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
@@ -76,8 +75,8 @@
   <script>
     let holdInterval = null;
     let activeCmd = 'stop';
+    let lastServoSend = 0;
     
-    // Kết nối bằng MQTT.js thông qua wss:// (Secure WebSocket) đường dẫn chuẩn của HiveMQ
     const clientId = "WebClient-" + Math.random().toString(16).substr(2, 8);
     const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
       clientId: clientId,
@@ -104,7 +103,6 @@
       console.error("MQTT Error: ", err);
     });
 
-    // Xử lý khi nhận được dữ liệu (tốc độ xe trả về)
     mqttClient.on('message', function (topic, message) {
       if (topic === "robot/telemetry") {
         try {
@@ -114,7 +112,6 @@
       }
     });
 
-    // Hàm gửi lệnh di chuyển
     function sendDirection(dir) {
       if (!mqttClient.connected) return;
       let x = 0, y = 0;
@@ -126,15 +123,16 @@
       mqttClient.publish("robot/joystick_cmd", `${x},${y}`);
     }
 
-    // Hàm gửi góc Servo
     function sendServo(joint, val) {
       document.getElementById('v_' + joint).innerText = val + '°';
-      if (mqttClient.connected) {
+      const now = Date.now();
+      // Giới hạn tần suất gửi tin nhắn (tối đa 20ms/lần) để tránh đơ mạng khi kéo nhanh
+      if (now - lastServoSend > 20 && mqttClient.connected) {
+        lastServoSend = now;
         mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
       }
     }
 
-    // Xử lý hiệu ứng nút bấm và gửi lệnh liên tục
     function pressBtn(cmd, id) {
       if(activeCmd === cmd) return;
       activeCmd = cmd;
@@ -151,7 +149,6 @@
       ['btnF','btnB','btnL','btnR'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     }
 
-    // Gán sự kiện cho các nút
     const bind = (id, cmd) => {
       let el = document.getElementById(id);
       el.addEventListener('touchstart', (e) => { e.preventDefault(); pressBtn(cmd, id); }, {passive: false});
