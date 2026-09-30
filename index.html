@@ -75,7 +75,10 @@
   <script>
     let holdInterval = null;
     let activeCmd = 'stop';
+    
+    // Biến dùng để throttle thanh trượt Servo
     let lastServoSend = 0;
+    let servoTimer = null;
     
     const clientId = "WebClient-" + Math.random().toString(16).substr(2, 8);
     const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
@@ -100,7 +103,6 @@
     mqttClient.on('error', function (err) {
       statusEl.innerText = "Lỗi kết nối!";
       statusEl.className = "status";
-      console.error("MQTT Error: ", err);
     });
 
     mqttClient.on('message', function (topic, message) {
@@ -125,12 +127,21 @@
 
     function sendServo(joint, val) {
       document.getElementById('v_' + joint).innerText = val + '°';
+      if (!mqttClient.connected) return;
+
       const now = Date.now();
-      // Giới hạn tần suất gửi tin nhắn (tối đa 20ms/lần) để tránh đơ mạng khi kéo nhanh
-      if (now - lastServoSend > 20 && mqttClient.connected) {
-        lastServoSend = now;
+      // Gửi max 10 lệnh/giây khi đang kéo để tránh nghẽn MQTT
+      if (now - lastServoSend > 100) { 
         mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
+        lastServoSend = now;
       }
+
+      // Đảm bảo vị trí cuối cùng khi bạn dừng kéo tay CẮC CHẮN được gửi đi
+      clearTimeout(servoTimer);
+      servoTimer = setTimeout(() => {
+        mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
+        lastServoSend = Date.now();
+      }, 150);
     }
 
     function pressBtn(cmd, id) {
