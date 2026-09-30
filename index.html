@@ -3,38 +3,252 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
   <title>Rescue Vehicle Control</title>
+
   <style>
-    * { box-sizing: border-box; touch-action: manipulation; -webkit-user-select: none; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-    h1 { color: #38bdf8; font-size: 20px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1.5px; }
-    .status { font-size: 12px; margin-bottom: 10px; color: #ef4444; font-weight: bold; }
+    * {
+      box-sizing: border-box;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #fff;
+      margin: 0;
+      padding: 10px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    h1 {
+      color: #38bdf8;
+      font-size: 20px;
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-align: center;
+    }
+
+    .status {
+      font-size: 12px;
+      margin-bottom: 10px;
+      color: #ef4444;
+      font-weight: 700;
+      text-align: center;
+    }
+
     .status.connected { color: #4ade80; }
     .status.reconnecting { color: #facc15; }
-    .speed-card { background: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 10px 20px; text-align: center; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 100%; max-width: 350px; }
-    .speed-val { font-size: 36px; font-weight: 800; color: #4ade80; font-family: monospace; line-height: 1; }
-    .speed-unit { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-top: 5px; }
-    
-    .panel { background: #1e293b; padding: 15px; border-radius: 20px; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); width: 100%; max-width: 350px; margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; }
-    .grid { display: grid; grid-template-columns: repeat(3, 70px); grid-template-rows: repeat(3, 70px); gap: 10px; }
-    .btn { background: #334155; border: none; border-radius: 15px; color: #f8fafc; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.05s ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
-    .btn:active, .btn.active { background: #38bdf8; color: #0f172a; transform: scale(0.92); box-shadow: 0 0 15px #38bdf8; }
-    .btn-stop { background: #ef4444; color: #fff; grid-column: 2; grid-row: 2; border-radius: 50%; font-size: 11px; font-weight: 800; }
-    .btn-stop:active { background: #dc2626; box-shadow: 0 0 15px #ef4444; }
-    #btnF { grid-column: 2; grid-row: 1; } #btnL { grid-column: 1; grid-row: 2; }
-    #btnR { grid-column: 3; grid-row: 2; } #btnB { grid-column: 2; grid-row: 3; }
-    
-    .servo-row { width: 100%; margin-bottom: 10px; }
-    .servo-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; color: #94a3b8; font-weight: bold; }
-    input[type=range] { -webkit-appearance: none; width: 100%; background: #334155; height: 12px; border-radius: 6px; outline: none; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; cursor: pointer; }
+
+    .status-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: -6px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .speed-card,
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 20px rgba(0,0,0,.35);
+      width: 100%;
+      max-width: 350px;
+    }
+
+    .speed-card {
+      border-radius: 15px;
+      padding: 10px 20px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .speed-val {
+      font-size: 36px;
+      font-weight: 800;
+      color: #4ade80;
+      font-family: monospace;
+      line-height: 1;
+    }
+
+    .speed-unit {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    .panel {
+      padding: 15px;
+      border-radius: 20px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 70px);
+      grid-template-rows: repeat(3, 70px);
+      gap: 10px;
+    }
+
+    .btn {
+      background: #334155;
+      border: 0;
+      border-radius: 15px;
+      color: #f8fafc;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .05s ease;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.2);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active,
+    .btn.active {
+      background: #38bdf8;
+      color: #0f172a;
+      transform: scale(.92);
+      box-shadow: 0 0 15px #38bdf8;
+    }
+
+    .btn-stop {
+      background: #ef4444;
+      color: #fff;
+      grid-column: 2;
+      grid-row: 2;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .btn-stop:active,
+    .btn-stop.active {
+      background: #dc2626;
+      box-shadow: 0 0 15px #ef4444;
+    }
+
+    #btnF { grid-column: 2; grid-row: 1; }
+    #btnL { grid-column: 1; grid-row: 2; }
+    #btnR { grid-column: 3; grid-row: 2; }
+    #btnB { grid-column: 2; grid-row: 3; }
+
+    .servo-title {
+      width: 100%;
+      margin: 0 0 15px;
+      color: #f8fafc;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .servo-row {
+      width: 100%;
+      margin-bottom: 13px;
+    }
+
+    .servo-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      margin-bottom: 7px;
+      color: #cbd5e1;
+      font-weight: 700;
+    }
+
+    .servo-value {
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      background: #334155;
+      height: 12px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+    }
+
+    input[type=range]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+    }
+
+    .servo-actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 3px;
+    }
+
+    .action-btn {
+      height: 42px;
+      border: 0;
+      border-radius: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #334155;
+      color: #f8fafc;
+    }
+
+    .action-btn:active {
+      transform: scale(.97);
+    }
+
+    .action-primary {
+      background: #38bdf8;
+      color: #0f172a;
+    }
+
+    .warning {
+      width: 100%;
+      max-width: 350px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: #94a3b8;
+      text-align: center;
+      margin-top: -3px;
+    }
   </style>
+
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
+
 <body>
   <h1>Thiết bị điều khiển</h1>
-  <div id="mqtt-status" class="status">Đang kết nối Server...</div>
-  
+  <div id="mqtt-status" class="status reconnecting">Đang kết nối Server...</div>
+  <div id="hardware-status" class="status-sub">PCA9685: đang kiểm tra...</div>
+
   <div class="speed-card">
     <div class="speed-val" id="speed">0.0</div>
     <div class="speed-unit">Tốc độ thực tế (km/h)</div>
@@ -42,135 +256,301 @@
 
   <div class="panel">
     <div class="grid">
-      <button class="btn" id="btnF">▲</button>
-      <button class="btn" id="btnL">◄</button>
-      <button class="btn btn-stop" id="btnS">STOP</button>
-      <button class="btn" id="btnR">►</button>
-      <button class="btn" id="btnB">▼</button>
+      <button class="btn" id="btnF" type="button">▲</button>
+      <button class="btn" id="btnL" type="button">◄</button>
+      <button class="btn btn-stop" id="btnS" type="button">STOP</button>
+      <button class="btn" id="btnR" type="button">►</button>
+      <button class="btn" id="btnB" type="button">▼</button>
     </div>
   </div>
 
   <div class="panel">
-    <h3 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 16px;">Điều khiển cánh tay robot</h3>
-    
+    <h3 class="servo-title">Điều khiển cánh tay robot</h3>
+
     <div class="servo-row">
-      <div class="servo-label"><span>Đế</span><span id="v_base">90°</span></div>
-      <input type="range" min="0" max="180" value="90" oninput="sendServo('base', this.value)">
+      <div class="servo-label">
+        <span>Đế</span>
+        <span id="v_base" class="servo-value">90°</span>
+      </div>
+      <input id="servo_base" type="range" min="0" max="180" value="90">
     </div>
-    
+
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh Tay 1</span><span id="v_shoulder">90°</span></div>
-      <input type="range" min="0" max="180" value="90" oninput="sendServo('shoulder', this.value)">
+      <div class="servo-label">
+        <span>Cánh Tay 1</span>
+        <span id="v_shoulder" class="servo-value">90°</span>
+      </div>
+      <input id="servo_shoulder" type="range" min="0" max="180" value="90">
     </div>
+
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh Tay 2</span><span id="v_elbow">90°</span></div>
-      <input type="range" min="0" max="180" value="90" oninput="sendServo('elbow', this.value)">
+      <div class="servo-label">
+        <span>Cánh Tay 2</span>
+        <span id="v_elbow" class="servo-value">90°</span>
+      </div>
+      <input id="servo_elbow" type="range" min="0" max="180" value="90">
     </div>
+
     <div class="servo-row">
-      <div class="servo-label"><span>Cánh Tay Kẹp</span><span id="v_gripper">90°</span></div>
-      <input type="range" min="0" max="180" value="90" oninput="sendServo('gripper', this.value)">
+      <div class="servo-label">
+        <span>Cánh Tay Kẹp</span>
+        <span id="v_gripper" class="servo-value">90°</span>
+      </div>
+      <input id="servo_gripper" type="range" min="0" max="180" value="90">
+    </div>
+
+    <div class="servo-actions">
+      <button id="btnCenter" class="action-btn action-primary" type="button">CENTER 90°</button>
+      <button id="btnReconnect" class="action-btn" type="button">KẾT NỐI LẠI</button>
     </div>
   </div>
 
+  <div class="warning">
+    Giữ nút xe để chạy. Khi thả nút hoặc mất lệnh quá 2 giây, ESP32 tự STOP.
+  </div>
+
   <script>
-    let holdInterval = null;
-    let activeCmd = 'stop';
-    
-    // Biến dùng để throttle thanh trượt Servo
-    let lastServoSend = 0;
-    let servoTimer = null;
-    
-    const clientId = "WebClient-" + Math.random().toString(16).substr(2, 8);
-    const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
-      clientId: clientId,
-      keepalive: 60,
-      reconnectPeriod: 1000
-    });
+    // ========================================================
+    // MQTT
+    // ========================================================
+    const MQTT_URL = 'wss://broker.hivemq.com:8884/mqtt';
+    const TOPIC_JOYSTICK = 'robot/joystick_cmd';
+    const TOPIC_SERVO = 'robot/servo_cmd';
+    const TOPIC_TELEMETRY = 'robot/telemetry';
+    const TOPIC_STATUS = 'robot/status';
 
     const statusEl = document.getElementById('mqtt-status');
+    const hardwareStatusEl = document.getElementById('hardware-status');
 
-    mqttClient.on('connect', function () {
-      statusEl.innerText = "Đã kết nối máy chủ";
-      statusEl.className = "status connected";
-      mqttClient.subscribe("robot/telemetry");
+    let activeCmd = 'stop';
+    let holdInterval = null;
+    const servoTimers = {};
+    const lastServoSend = {};
+
+    const clientId = 'WebClient-' + Math.random().toString(16).slice(2, 10);
+
+    const mqttClient = mqtt.connect(MQTT_URL, {
+      clientId,
+      keepalive: 30,
+      reconnectPeriod: 1000,
+      connectTimeout: 8000,
+      clean: true
     });
 
-    mqttClient.on('reconnect', function () {
-      statusEl.innerText = "Đang thử kết nối lại...";
-      statusEl.className = "status reconnecting";
+    mqttClient.on('connect', () => {
+      statusEl.innerText = 'Đã kết nối máy chủ';
+      statusEl.className = 'status connected';
+
+      mqttClient.subscribe(TOPIC_TELEMETRY);
+      mqttClient.subscribe(TOPIC_STATUS);
     });
 
-    mqttClient.on('error', function (err) {
-      statusEl.innerText = "Lỗi kết nối!";
-      statusEl.className = "status";
+    mqttClient.on('reconnect', () => {
+      statusEl.innerText = 'Đang thử kết nối lại...';
+      statusEl.className = 'status reconnecting';
     });
 
-    mqttClient.on('message', function (topic, message) {
-      if (topic === "robot/telemetry") {
-        try {
-          const data = JSON.parse(message.toString());
-          document.getElementById('speed').innerText = data.speed.toFixed(1);
-        } catch(e) {}
+    mqttClient.on('offline', () => {
+      statusEl.innerText = 'Mất kết nối MQTT';
+      statusEl.className = 'status';
+      releaseBtn();
+    });
+
+    mqttClient.on('close', () => {
+      // Trạng thái sẽ được cập nhật bởi reconnect/offline.
+    });
+
+    mqttClient.on('error', (err) => {
+      console.error('MQTT error:', err);
+      statusEl.innerText = 'Lỗi kết nối MQTT';
+      statusEl.className = 'status';
+    });
+
+    mqttClient.on('message', (topic, message) => {
+      const text = message.toString();
+
+      try {
+        const data = JSON.parse(text);
+
+        if (topic === TOPIC_TELEMETRY) {
+          if (typeof data.speed === 'number') {
+            document.getElementById('speed').innerText = data.speed.toFixed(1);
+          }
+
+          if (typeof data.pca9685 === 'boolean') {
+            updateHardwareStatus(data.pca9685);
+          }
+        }
+
+        if (topic === TOPIC_STATUS && typeof data.pca9685 === 'boolean') {
+          updateHardwareStatus(data.pca9685);
+        }
+      } catch (e) {
+        console.warn('Telemetry JSON không hợp lệ:', text);
       }
     });
 
-    function sendDirection(dir) {
-      if (!mqttClient.connected) return;
-      let x = 0, y = 0;
-      if (dir === 'forward') { x = 2000; y = 0; }
-      else if (dir === 'backward') { x = -2000; y = 0; }
-      else if (dir === 'left') { x = 0; y = -2000; }
-      else if (dir === 'right') { x = 0; y = 2000; }
-      
-      mqttClient.publish("robot/joystick_cmd", `${x},${y}`);
+    function updateHardwareStatus(ok) {
+      if (ok) {
+        hardwareStatusEl.innerText = 'PCA9685: OK • Servo controller sẵn sàng';
+        hardwareStatusEl.style.color = '#4ade80';
+      } else {
+        hardwareStatusEl.innerText = 'PCA9685: LỖI • kiểm tra I2C và nguồn V+';
+        hardwareStatusEl.style.color = '#ef4444';
+      }
     }
 
-    function sendServo(joint, val) {
-      document.getElementById('v_' + joint).innerText = val + '°';
-      if (!mqttClient.connected) return;
+    function publish(topic, payload) {
+      if (!mqttClient.connected) return false;
+      mqttClient.publish(topic, payload);
+      return true;
+    }
 
-      const now = Date.now();
-      // Gửi max 10 lệnh/giây khi đang kéo để tránh nghẽn MQTT
-      if (now - lastServoSend > 100) { 
-        mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
-        lastServoSend = now;
+    // ========================================================
+    // XE
+    // ========================================================
+    function sendDirection(dir) {
+      let x = 0;
+      let y = 0;
+
+      if (dir === 'forward') {
+        x = 2000;
+      } else if (dir === 'backward') {
+        x = -2000;
+      } else if (dir === 'left') {
+        y = -2000;
+      } else if (dir === 'right') {
+        y = 2000;
       }
 
-      // Đảm bảo vị trí cuối cùng khi bạn dừng kéo tay CẮC CHẮN được gửi đi
-      clearTimeout(servoTimer);
-      servoTimer = setTimeout(() => {
-        mqttClient.publish("robot/servo_cmd", `${joint}:${val}`);
-        lastServoSend = Date.now();
-      }, 150);
+      publish(TOPIC_JOYSTICK, `${x},${y}`);
     }
 
     function pressBtn(cmd, id) {
-      if(activeCmd === cmd) return;
+      if (activeCmd === cmd) return;
+
       activeCmd = cmd;
-      document.getElementById(id)?.classList.add('active');
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+
       sendDirection(cmd);
-      if (holdInterval) clearInterval(holdInterval);
-      holdInterval = setInterval(() => { sendDirection(cmd); }, 800);
+
+      clearInterval(holdInterval);
+      holdInterval = setInterval(() => {
+        if (activeCmd !== 'stop') {
+          sendDirection(activeCmd);
+        }
+      }, 500);
     }
 
     function releaseBtn() {
-      if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+      clearInterval(holdInterval);
+      holdInterval = null;
       activeCmd = 'stop';
+
       sendDirection('stop');
-      ['btnF','btnB','btnL','btnR'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+
+      ['btnF', 'btnB', 'btnL', 'btnR'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
     }
 
-    const bind = (id, cmd) => {
-      let el = document.getElementById(id);
-      el.addEventListener('touchstart', (e) => { e.preventDefault(); pressBtn(cmd, id); }, {passive: false});
-      el.addEventListener('touchend', (e) => { e.preventDefault(); releaseBtn(); }, {passive: false});
-      el.addEventListener('mousedown', () => pressBtn(cmd, id));
-      el.addEventListener('mouseup', releaseBtn);
-      el.addEventListener('mouseleave', releaseBtn);
-    };
+    function bindDriveButton(id, cmd) {
+      const el = document.getElementById(id);
 
-    bind('btnF', 'forward'); bind('btnB', 'backward'); bind('btnL', 'left'); bind('btnR', 'right');
-    document.getElementById('btnS').onclick = releaseBtn;
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        pressBtn(cmd, id);
+      });
+
+      el.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        releaseBtn();
+      });
+
+      el.addEventListener('pointercancel', releaseBtn);
+      el.addEventListener('lostpointercapture', () => {
+        if (activeCmd === cmd) releaseBtn();
+      });
+      el.addEventListener('pointerleave', (e) => {
+        if (e.buttons === 0 && activeCmd === cmd) releaseBtn();
+      });
+    }
+
+    bindDriveButton('btnF', 'forward');
+    bindDriveButton('btnB', 'backward');
+    bindDriveButton('btnL', 'left');
+    bindDriveButton('btnR', 'right');
+
+    document.getElementById('btnS').addEventListener('click', releaseBtn);
+
+    window.addEventListener('blur', releaseBtn);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) releaseBtn();
+    });
+
+    // ========================================================
+    // SERVO
+    // ========================================================
+    function sendServo(joint, value) {
+      const val = Math.max(0, Math.min(180, parseInt(value, 10) || 0));
+      const valueEl = document.getElementById('v_' + joint);
+      if (valueEl) valueEl.innerText = val + '°';
+
+      // Gửi ngay khi đủ 100 ms kể từ lệnh trước.
+      const now = Date.now();
+      const previous = lastServoSend[joint] || 0;
+
+      if (mqttClient.connected && now - previous >= 100) {
+        publish(TOPIC_SERVO, `${joint}:${val}`);
+        lastServoSend[joint] = now;
+      }
+
+      // Mỗi servo có timer riêng để đảm bảo giá trị cuối cùng luôn được gửi.
+      clearTimeout(servoTimers[joint]);
+      servoTimers[joint] = setTimeout(() => {
+        if (mqttClient.connected) {
+          publish(TOPIC_SERVO, `${joint}:${val}`);
+          lastServoSend[joint] = Date.now();
+        }
+      }, 160);
+    }
+
+    function bindServo(id, joint) {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', () => sendServo(joint, slider.value));
+      slider.addEventListener('change', () => sendServo(joint, slider.value));
+    }
+
+    bindServo('servo_base', 'base');
+    bindServo('servo_shoulder', 'shoulder');
+    bindServo('servo_elbow', 'elbow');
+    bindServo('servo_gripper', 'gripper');
+
+    function centerAllServos() {
+      const joints = ['base', 'shoulder', 'elbow', 'gripper'];
+
+      joints.forEach(joint => {
+        const slider = document.getElementById('servo_' + joint);
+        if (slider) slider.value = 90;
+        sendServo(joint, 90);
+      });
+    }
+
+    document.getElementById('btnCenter').addEventListener('click', centerAllServos);
+
+    document.getElementById('btnReconnect').addEventListener('click', () => {
+      try {
+        mqttClient.reconnect();
+      } catch (e) {
+        location.reload();
+      }
+    });
+
+    // Đồng bộ giao diện sau khi mở trang.
+    updateHardwareStatus(false);
   </script>
 </body>
 </html>
