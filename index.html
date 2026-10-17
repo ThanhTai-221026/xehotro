@@ -239,6 +239,13 @@
       text-align: center;
       margin-top: -3px;
     }
+    .rear-card { width:100%; max-width:350px; padding:12px; margin-bottom:15px;
+      border:1px solid #facc15; border-radius:15px; background:#422006; text-align:center; }
+    .rear-card.safe { border-color:#4ade80; background:#052e16; }
+    .rear-card.danger { border-color:#ef4444; background:#450a0a; }
+    #rear-distance { font-size:26px; font-weight:800; margin:6px 0; }
+    #rear-warning { font-size:13px; line-height:1.5; }
+    #btnB[aria-disabled="true"] { background:#7f1d1d; color:#fca5a5; }
   </style>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -252,6 +259,12 @@
   <div class="speed-card">
     <div class="speed-val" id="speed">0.0</div>
     <div class="speed-unit">Tốc độ thực tế (km/h)</div>
+  </div>
+
+  <div id="rear-card" class="rear-card" role="status" aria-live="polite">
+    <strong>Cảm biến phía sau</strong>
+    <div id="rear-distance">— cm</div>
+    <div id="rear-warning">Chờ dữ liệu cảm biến — tạm khóa lùi</div>
   </div>
 
   <div class="panel">
@@ -322,6 +335,8 @@
     const statusEl = document.getElementById('mqtt-status');
     const hardwareStatusEl = document.getElementById('hardware-status');
 
+    let rearBlocked = true;
+    let rearLastReceived = 0;
     let activeCmd = 'stop';
     let holdInterval = null;
     const servoTimers = {};
@@ -373,6 +388,10 @@
         const data = JSON.parse(text);
 
         if (topic === TOPIC_TELEMETRY) {
+          if (typeof data.rear_blocked === 'boolean' && typeof data.rear_valid === 'boolean') {
+            rearLastReceived = Date.now();
+            updateRearStatus(data);
+          }
           if (typeof data.speed === 'number') {
             document.getElementById('speed').innerText = data.speed.toFixed(1);
           }
@@ -389,6 +408,27 @@
         console.warn('Telemetry JSON không hợp lệ:', text);
       }
     });
+
+    function updateRearStatus(data) {
+      const valid = data.rear_valid === true && typeof data.rear_cm === 'number'
+                    && Number.isFinite(data.rear_cm) && data.rear_cm >= 0;
+      rearBlocked = !valid || data.rear_blocked === true || data.rear_cm < 15;
+      const card = document.getElementById('rear-card');
+      document.getElementById('rear-distance').innerText = valid ? data.rear_cm.toFixed(1) + ' cm' : '— cm';
+      card.className = 'rear-card' + (valid ? (rearBlocked ? ' danger' : ' safe') : '');
+      document.getElementById('rear-warning').innerText = !valid
+        ? 'Chưa có dữ liệu hợp lệ / mất tín hiệu — khóa lùi. Vẫn được tiến và quay.'
+        : rearBlocked
+          ? 'CẢNH BÁO: Vật cản phía sau dưới 15 cm — KHÓA LÙI!'
+          : 'Khoảng cách từ 15 cm trở lên — cho phép lùi.';
+      document.getElementById('btnB').setAttribute('aria-disabled', String(rearBlocked));
+      if (rearBlocked && activeCmd === 'backward') releaseBtn();
+    }
+    setInterval(() => {
+      if (!mqttClient.connected || !rearLastReceived || Date.now() - rearLastReceived > 1500) {
+        updateRearStatus({rear_valid:false, rear_blocked:true});
+      }
+    }, 250);
 
     function updateHardwareStatus(ok) {
       if (ok) {
@@ -427,6 +467,7 @@
     }
 
     function pressBtn(cmd, id) {
+      if (cmd === 'backward' && rearBlocked) return;
       if (activeCmd === cmd) return;
 
       activeCmd = cmd;
@@ -551,6 +592,7 @@
 
     // Đồng bộ giao diện sau khi mở trang.
     updateHardwareStatus(false);
+    updateRearStatus({rear_valid:false, rear_blocked:true});
   </script>
 </body>
 </html>
