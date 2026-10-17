@@ -239,12 +239,12 @@
       text-align: center;
       margin-top: -3px;
     }
-    .rear-card { width:100%; max-width:350px; padding:12px; margin-bottom:15px;
-      border:1px solid #facc15; border-radius:15px; background:#422006; text-align:center; }
-    .rear-card.safe { border-color:#4ade80; background:#052e16; }
-    .rear-card.danger { border-color:#ef4444; background:#450a0a; }
-    #rear-distance { font-size:26px; font-weight:800; margin:6px 0; }
-    #rear-warning { font-size:13px; line-height:1.5; }
+    .rear-note {
+      font-size: 11px; line-height: 1.5; max-width: 350px;
+      text-align: center; margin: -5px 0 10px; color: #94a3b8;
+    }
+    .rear-note.safe { color: #4ade80; }
+    .rear-note.danger { color: #ef4444; }
     #btnB[aria-disabled="true"] { background:#7f1d1d; color:#fca5a5; }
   </style>
 
@@ -253,19 +253,15 @@
 
 <body>
   <h1>Thiết bị điều khiển</h1>
-  <div id="mqtt-status" class="status reconnecting">Đang kết nối Server...</div>
-  <div id="hardware-status" class="status-sub">PCA9685: đang kiểm tra...</div>
+  <div id="mqtt-status" class="status reconnecting">Đang kết nối...</div>
+  <div id="hardware-status" class="status-sub">Cánh tay robot: đang kết nối…</div>
+  <div id="rear-warning" class="rear-note" role="status" aria-live="polite">Cảm biến sau:Không có vật cản.</div>
 
   <div class="speed-card">
     <div class="speed-val" id="speed">0.0</div>
     <div class="speed-unit">Tốc độ thực tế (km/h)</div>
   </div>
 
-  <div id="rear-card" class="rear-card" role="status" aria-live="polite">
-    <strong>Cảm biến phía sau</strong>
-    <div id="rear-distance">— cm</div>
-    <div id="rear-warning">Chờ dữ liệu cảm biến — tạm khóa lùi</div>
-  </div>
 
   <div class="panel">
     <div class="grid">
@@ -335,7 +331,8 @@
     const statusEl = document.getElementById('mqtt-status');
     const hardwareStatusEl = document.getElementById('hardware-status');
 
-    let rearBlocked = true;
+    let rearBlocked = false;
+    let lastHardwareReceived = 0;
     let rearLastReceived = 0;
     let activeCmd = 'stop';
     let holdInterval = null;
@@ -349,7 +346,8 @@
       keepalive: 30,
       reconnectPeriod: 1000,
       connectTimeout: 8000,
-      clean: true
+      clean: true,
+      queueQoSZero: false
     });
 
     mqttClient.on('connect', () => {
@@ -358,6 +356,11 @@
 
       mqttClient.subscribe(TOPIC_TELEMETRY);
       mqttClient.subscribe(TOPIC_STATUS);
+      rearLastReceived = 0;
+      lastHardwareReceived = 0;
+      updateRearStatus({rear_valid:false});
+      showHardwareWaiting();
+      releaseBtn();
     });
 
     mqttClient.on('reconnect', () => {
@@ -381,7 +384,7 @@
       statusEl.className = 'status';
     });
 
-    mqttClient.on('message', (topic, message) => {
+    mqttClient.on('message', (topic, message, packet) => {
       const text = message.toString();
 
       try {
@@ -396,12 +399,12 @@
             document.getElementById('speed').innerText = data.speed.toFixed(1);
           }
 
-          if (typeof data.pca9685 === 'boolean') {
+          if ((!packet || !packet.retain) && typeof data.pca9685 === 'boolean') {
             updateHardwareStatus(data.pca9685);
           }
         }
 
-        if (topic === TOPIC_STATUS && typeof data.pca9685 === 'boolean') {
+        if (topic === TOPIC_STATUS && (!packet || !packet.retain) && typeof data.pca9685 === 'boolean') {
           updateHardwareStatus(data.pca9685);
         }
       } catch (e) {
@@ -412,25 +415,33 @@
     function updateRearStatus(data) {
       const valid = data.rear_valid === true && typeof data.rear_cm === 'number'
                     && Number.isFinite(data.rear_cm) && data.rear_cm >= 0;
-      rearBlocked = !valid || data.rear_blocked === true || data.rear_cm < 15;
-      const card = document.getElementById('rear-card');
-      document.getElementById('rear-distance').innerText = valid ? data.rear_cm.toFixed(1) + ' cm' : '— cm';
-      card.className = 'rear-card' + (valid ? (rearBlocked ? ' danger' : ' safe') : '');
-      document.getElementById('rear-warning').innerText = !valid
-        ? 'Chưa có dữ liệu hợp lệ / mất tín hiệu — khóa lùi. Vẫn được tiến và quay.'
+      // No reading/stale reading never locks reverse. Only a measured <15cm does.
+      rearBlocked = valid && data.rear_cm < 15;
+      const note = document.getElementById('rear-warning');
+      note.className = 'rear-note' + (valid ? (rearBlocked ? ' danger' : ' safe') : '');
+      note.innerText = !valid
+        ? 'Cảm biến sau: không có dữ liệu — vẫn cho phép lùi.'
         : rearBlocked
-          ? 'CẢNH BÁO: Vật cản phía sau dưới 15 cm — KHÓA LÙI!'
-          : 'Khoảng cách từ 15 cm trở lên — cho phép lùi.';
+          ? 'Cảnh báo phía sau: ' + data.rear_cm.toFixed(1) + ' cm (<15 cm) — KHÓA LÙI.'
+          : 'Cảm biến sau: ' + data.rear_cm.toFixed(1) + ' cm — cho phép lùi.';
       document.getElementById('btnB').setAttribute('aria-disabled', String(rearBlocked));
       if (rearBlocked && activeCmd === 'backward') releaseBtn();
     }
+    function showHardwareWaiting() {
+      hardwareStatusEl.innerText = 'Cánh tay robot: đang chờ dữ liệu trực tiếp từ xe…';
+      hardwareStatusEl.style.color = '#94a3b8';
+    }
     setInterval(() => {
       if (!mqttClient.connected || !rearLastReceived || Date.now() - rearLastReceived > 1500) {
-        updateRearStatus({rear_valid:false, rear_blocked:true});
+        updateRearStatus({rear_valid:false});
+      }
+      if (!mqttClient.connected || !lastHardwareReceived || Date.now() - lastHardwareReceived > 4000) {
+        showHardwareWaiting();
       }
     }, 250);
 
     function updateHardwareStatus(ok) {
+      lastHardwareReceived = Date.now();
       if (ok) {
         hardwareStatusEl.innerText = 'Đã kết nối với cánh tay robot';
         hardwareStatusEl.style.color = '#4ade80';
@@ -585,14 +596,14 @@
     document.getElementById('btnReconnect').addEventListener('click', () => {
       try {
         mqttClient.reconnect();
-      } catch (e) {
+      } catch (_) {
         location.reload();
       }
     });
 
-    // Đồng bộ giao diện sau khi mở trang.
-    updateHardwareStatus(false);
-    updateRearStatus({rear_valid:false, rear_blocked:true});
+    showHardwareWaiting();
+    updateRearStatus({rear_valid:false});
+
   </script>
 </body>
 </html>
