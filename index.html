@@ -351,7 +351,7 @@
     });
 
     mqttClient.on('connect', () => {
-      statusEl.innerText = 'Đã kết nối máy chủ';
+      statusEl.innerText = 'Đã kết nối';
       statusEl.className = 'status connected';
 
       mqttClient.subscribe(TOPIC_TELEMETRY);
@@ -369,7 +369,7 @@
     });
 
     mqttClient.on('offline', () => {
-      statusEl.innerText = 'Mất kết nối MQTT';
+      statusEl.innerText = 'Mất kết nối';
       statusEl.className = 'status';
       releaseBtn();
     });
@@ -414,14 +414,14 @@
     function updateRearStatus(data) {
       const valid = data.rear_valid === true && typeof data.rear_cm === 'number'
                     && Number.isFinite(data.rear_cm) && data.rear_cm >= 0;
-      // No reading/stale reading never locks reverse. Only a measured <15cm does.
-      rearBlocked = valid && data.rear_cm < 15;
+     
+      rearBlocked = valid && data.rear_cm < 20;
       const note = document.getElementById('rear-warning');
       note.className = 'rear-note' + (valid ? (rearBlocked ? ' danger' : ' safe') : '');
       note.innerText = !valid
         ? 'Cảm biến sau: không có dữ liệu khoảng cách'
         : rearBlocked
-          ? 'Cảnh báo phía sau: ' + data.rear_cm.toFixed(1) + ' cm (<15 cm) — không cho phép lùi.'
+          ? 'Cảnh báo phía sau: ' + data.rear_cm.toFixed(1) + ' cm (<20 cm) — không cho phép lùi.'
           : 'Cảm biến sau: ' + data.rear_cm.toFixed(1) + ' cm — cho phép lùi.';
       document.getElementById('btnB').setAttribute('aria-disabled', String(rearBlocked));
       if (rearBlocked && activeCmd === 'backward') releaseBtn();
