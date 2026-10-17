@@ -364,7 +364,7 @@
     });
 
     mqttClient.on('reconnect', () => {
-      statusEl.innerText = 'Đang thử kết nối lại...';
+      statusEl.innerText = 'Đang kết nối lại...';
       statusEl.className = 'status reconnecting';
     });
 
@@ -380,7 +380,7 @@
 
     mqttClient.on('error', (err) => {
       console.error('MQTT error:', err);
-      statusEl.innerText = 'Lỗi kết nối MQTT';
+      statusEl.innerText = 'Lỗi kết nối';
       statusEl.className = 'status';
     });
 
@@ -420,15 +420,15 @@
       const note = document.getElementById('rear-warning');
       note.className = 'rear-note' + (valid ? (rearBlocked ? ' danger' : ' safe') : '');
       note.innerText = !valid
-        ? 'Cảm biến sau: không có dữ liệu — vẫn cho phép lùi.'
+        ? 'Cảm biến sau: không có dữ liệu khoảng cách'
         : rearBlocked
-          ? 'Cảnh báo phía sau: ' + data.rear_cm.toFixed(1) + ' cm (<15 cm) — KHÓA LÙI.'
+          ? 'Cảnh báo phía sau: ' + data.rear_cm.toFixed(1) + ' cm (<15 cm) — không cho phép lùi.'
           : 'Cảm biến sau: ' + data.rear_cm.toFixed(1) + ' cm — cho phép lùi.';
       document.getElementById('btnB').setAttribute('aria-disabled', String(rearBlocked));
       if (rearBlocked && activeCmd === 'backward') releaseBtn();
     }
     function showHardwareWaiting() {
-      hardwareStatusEl.innerText = 'Cánh tay robot: đang chờ dữ liệu trực tiếp từ xe…';
+      hardwareStatusEl.innerText = 'Cánh tay robot: đang chờ dữ liệu khoảng cách';
       hardwareStatusEl.style.color = '#94a3b8';
     }
     setInterval(() => {
