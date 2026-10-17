@@ -375,7 +375,6 @@
     });
 
     mqttClient.on('close', () => {
-      // Trạng thái sẽ được cập nhật bởi reconnect/offline.
     });
 
     mqttClient.on('error', (err) => {
@@ -428,7 +427,7 @@
       if (rearBlocked && activeCmd === 'backward') releaseBtn();
     }
     function showHardwareWaiting() {
-      hardwareStatusEl.innerText = 'Cánh tay robot: đang chờ dữ liệu khoảng cách';
+      hardwareStatusEl.innerText = 'Cánh tay robot: đang chờ kết nối';
       hardwareStatusEl.style.color = '#94a3b8';
     }
     setInterval(() => {
@@ -543,15 +542,11 @@
       if (document.hidden) releaseBtn();
     });
 
-    // ========================================================
-    // SERVO
-    // ========================================================
     function sendServo(joint, value) {
       const val = Math.max(0, Math.min(180, parseInt(value, 10) || 0));
       const valueEl = document.getElementById('v_' + joint);
       if (valueEl) valueEl.innerText = val + '°';
 
-      // Gửi ngay khi đủ 100 ms kể từ lệnh trước.
       const now = Date.now();
       const previous = lastServoSend[joint] || 0;
 
@@ -559,8 +554,6 @@
         publish(TOPIC_SERVO, `${joint}:${val}`);
         lastServoSend[joint] = now;
       }
-
-      // Mỗi servo có timer riêng để đảm bảo giá trị cuối cùng luôn được gửi.
       clearTimeout(servoTimers[joint]);
       servoTimers[joint] = setTimeout(() => {
         if (mqttClient.connected) {
